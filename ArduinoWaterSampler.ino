@@ -5,7 +5,7 @@ A basic sequencer, waits for an input (from a float sensor indicating presence
 of water), then sequences a series of outputs (activating relays to start the
 sampler pumps).
 
-By Ashley Gillman and Brendan Calvert
+By Ashley Gillman and the Amazing Brendan Calvert
 */
 
 #include "Timer.h" // https://github.com/JChristensen/Timer
