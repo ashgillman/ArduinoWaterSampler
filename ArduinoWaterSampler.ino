@@ -8,7 +8,7 @@ sampler pumps).
 By Ashley Gillman and Brendan Calvert
 */
 
-#include "Timer.h" // https://github.com/JChristensen/Timer
+//#include "/libraries/Timer/Timer.h" // https://github.com/JChristensen/Timer
 
 // unit converstion constants
 const long hr2milli = 60*60*1000;
@@ -26,9 +26,20 @@ Timer timer;
 
 void setup() {
   Serial.begin(9600);
-  int tickEvent = timer.after(1*hr2milli);
+  for (int i=0; i<6; i++) {
+    timer.after(delays[i],startPump(i));
+  }
 }
 
 void loop() {
-  
+  timer.update();
+}
+
+void startPump(int pumpNo) {
+  digitalWrite(pumps[pumpNo],HIGH);
+  timer.after(pumpRunTime,stopPump(pumpNo));
+}
+
+void stopPump(int pumpNo) {
+  digitalWrite(pumps[pumpNo],LOW);
 }
