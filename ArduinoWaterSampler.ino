@@ -17,8 +17,14 @@ const long MIN2MILLI = 60*1000;
 // pin constants
 const int PUMP_PINS[6] = {2, 3, 4, 5, 6, 7};
 // time constants
-const int DELAYS[6] = {0, 1 * HR2MILLI, 2 * HR2MILLI, 3 * HR2MILLI,
-  4 * HR2MILLI, 5 * HR2MILLI};
+const int DELAYS[6] = {
+  0,
+  1 * HR2MILLI,
+  2 * HR2MILLI,
+  3 * HR2MILLI,
+  4 * HR2MILLI,
+  5 * HR2MILLI
+};
 const int pumpRunTime = 30 * MIN2MILLI;
 
 Timer timer;
