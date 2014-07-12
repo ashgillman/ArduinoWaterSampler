@@ -13,6 +13,7 @@ By Ashley Gillman and Brendan Calvert
 #include <Adafruit_GFX.h> // https://github.com/adafruit/Adafruit-GFX-Library
 #include <Adafruit_PCD8544.h>
 // https://github.com/adafruit/Adafruit-PCD8544-Nokia-5110-LCD-library
+#include <ButtonEvent.h> // https://github.com/usefulthink/ebl-arduino
 
 #define DEBUG 1 // Serial out?
 
@@ -20,8 +21,10 @@ By Ashley Gillman and Brendan Calvert
 const long HR2MILLI = 60*60*1000L;
 const long MIN2MILLI = 60*1000L;
 const long SEC2MILLI = 1000L;
+
 // pin constants
 const int PUMP_PINS[6] = {8, 9, 10, 11, 12, 13};
+
 // time constants
 const long DELAYS[6] = {
   0,
@@ -31,7 +34,16 @@ const long DELAYS[6] = {
   4 * MIN2MILLI,
   5 * MIN2MILLI
 };
-const long pumpRunTime = 30 * SEC2MILLI;
+const long pumpRunTime = 60 * SEC2MILLI;
+
+// analog button values
+const int btnPin = 0;
+const int btnDev = 100;
+const int holdTime = 500;
+const int doubleTime = 0;
+const int upBtn = 1023 / 3;
+const int downBtn = 1023 / 2;
+const int nextBtn = 1023;
 
 Timer timer;
 Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
@@ -39,11 +51,20 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
 int initPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
 int currentPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
 boolean pumpActive[6] = {0, 0, 0, 0, 0, 0};
+boolean displayScreen = true;
 
 void setup() {
+  // init
   if (DEBUG) { Serial.begin(9600); }
   display.begin();
   display.setContrast(50);
+  
+  // buttons
+  ButtonEvent.initialCapacity = sizeof(ButtonInformation)*3;
+  ButtonEvent.addButton(btnPin, nextBtn, btnDev, toggleDisplay, NULL, NULL,
+    holdTime, NULL, doubleTime);
+  
+  // setup pumps
   for (int i=0; i<6; i++) {
     pinMode(PUMP_PINS[i],OUTPUT);
     timer.after(DELAYS[i],startPump);
@@ -58,7 +79,9 @@ void setup() {
 
 void loop() {
   timer.update();
-  displayTimes();
+  ButtonEvent.loop();
+  if (displayScreen) { displayTimes(); }
+  else { displayRuntime(); }
 }
 
 void startPump() {
@@ -81,7 +104,7 @@ void stopPump() {
     Serial.print("stopped pump ");
     Serial.print(currentPumpNo + 1);
     Serial.print(" on pin ");
-    Serial.println(PUMP_PINS[initPumpNo]);
+    Serial.println(PUMP_PINS[currentPumpNo]);
   }
   currentPumpNo++;
 }
@@ -103,4 +126,22 @@ void displayTimes() {
     display.println("min");
   }
   display.display();
+}
+
+void displayRuntime() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.setTextColor(BLACK);
+  display.println("Runtime:");
+  display.print(pumpRunTime/HR2MILLI);
+  display.print("h ");
+  display.print(pumpRunTime/MIN2MILLI);
+  display.println("min");
+  display.display();
+}
+
+void toggleDisplay(ButtonInformation* Sender) {
+  displayScreen = !displayScreen;
+  Serial.println(displayScreen);
 }
