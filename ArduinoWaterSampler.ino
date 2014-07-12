@@ -57,10 +57,11 @@ Timer timer;
 Adafruit_PCD8544 display = Adafruit_PCD8544(CLK, DIN, DC, CE, RST);
 
 boolean error = false;
+int cursorPos = 0;
+boolean blinker = false;
 int initPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
 int currentPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
 boolean pumpActive[6] = {0, 0, 0, 0, 0, 0};
-boolean displayScreen = true;
 
 void setup() {
   // init
@@ -78,7 +79,7 @@ void setup() {
   
   // buttons
   ButtonEvent.initialCapacity = sizeof(ButtonInformation)*3;
-  ButtonEvent.addButton(btnPin, nextBtn, btnDev, toggleDisplay, NULL, NULL,
+  ButtonEvent.addButton(btnPin, nextBtn, btnDev, incrementCursor, NULL, NULL,
     holdTime, NULL, doubleTime);
   
   // setup pumps
@@ -92,13 +93,16 @@ void setup() {
       Serial.println(DELAYS[i]);
     }
   }
+  
+  //blinker
+  timer.every(600, blink);
 }
 
 void loop() {
   timer.update();
   ButtonEvent.loop();
-  if (displayScreen) { displayTimes(); }
-  else { displayRuntime(); }
+  if (cursorPos < 12) { displayTimes(); } // page 1
+  else { displayRuntime(); } // page 2
 }
 
 void startPump() {
@@ -131,15 +135,24 @@ void displayTimes() {
   display.setTextSize(1);
   display.setCursor(0,0);
   for (int i=0; i<6; i++) {
+    // P<x>: <y>h <z>min
     if (pumpActive[i]) { display.setTextColor(WHITE, BLACK); }
-    else { display.setTextColor(BLACK); }
+    else { display.setTextColor(BLACK); } // highlight active pumps
     display.print("P");
     display.print(i + 1);
     display.setTextColor(BLACK);
     display.print(": ");
+    if ((cursorPos == 2*i) & blinker) {
+      display.setTextColor(WHITE, BLACK); // blink
+    }
     display.print(DELAYS[i]/HR2MILLI);
+    display.setTextColor(BLACK);
     display.print("h ");
+    if ((cursorPos == 2*i+1) & blinker) {
+      display.setTextColor(WHITE, BLACK); // blink
+    }
     display.print(DELAYS[i]/MIN2MILLI);
+    display.setTextColor(BLACK);
     display.println("min");
   }
   display.display();
@@ -151,14 +164,25 @@ void displayRuntime() {
   display.setCursor(0,0);
   display.setTextColor(BLACK);
   display.println("Runtime:");
+    if ((cursorPos == 12) & blinker) {
+      display.setTextColor(WHITE, BLACK); // blink
+    }
   display.print(pumpRunTime/HR2MILLI);
+  display.setTextColor(BLACK);
   display.print("h ");
+    if ((cursorPos == 13) & blinker) {
+      display.setTextColor(WHITE, BLACK); // blink
+    }
   display.print(pumpRunTime/MIN2MILLI);
+  display.setTextColor(BLACK);
   display.println("min");
   display.display();
 }
 
-void toggleDisplay(ButtonInformation* Sender) {
-  displayScreen = !displayScreen;
-  Serial.println(displayScreen);
+void incrementCursor(ButtonInformation* Sender) {
+  cursorPos = (cursorPos + 1) % 14;
+}
+
+void blink() {
+  blinker = !blinker;
 }
