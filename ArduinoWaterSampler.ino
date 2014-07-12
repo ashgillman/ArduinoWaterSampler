@@ -12,20 +12,21 @@ By Ashley Gillman and Brendan Calvert
 #define DEBUG 1 // Serial out?
 
 // unit converstion constants
-const long HR2MILLI = 60*60*1000;
-const long MIN2MILLI = 60*1000;
+const long HR2MILLI = 60*60*1000L;
+const long MIN2MILLI = 60*1000L;
+const long SEC2MILLI = 1000L;
 // pin constants
-const int PUMP_PINS[6] = {2, 3, 4, 5, 6, 7};
+const int PUMP_PINS[6] = {8, 9, 10, 11, 12, 13};
 // time constants
-const int DELAYS[6] = {
+const long DELAYS[6] = {
   0,
-  1 * HR2MILLI,
-  2 * HR2MILLI,
-  3 * HR2MILLI,
-  4 * HR2MILLI,
-  5 * HR2MILLI
+  1 * MIN2MILLI,
+  2 * MIN2MILLI,
+  3 * MIN2MILLI,
+  4 * MIN2MILLI,
+  5 * MIN2MILLI
 };
-const int pumpRunTime = 30 * MIN2MILLI;
+const long pumpRunTime = 30 * SEC2MILLI;
 
 Timer timer;
 
