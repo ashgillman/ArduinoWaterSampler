@@ -5,6 +5,15 @@ A basic sequencer, waits for an input (from a float sensor indicating presence
 of water), then sequences a series of outputs (activating relays to start the
 sampler PUMP_PINS).
 
+Properties
+0: Pump 1 mins
+1: Pump 2 mins
+2: Pump 3 mins
+3: Pump 4 mins
+4: Pump 5 mins
+5: Pump 6 mins
+7: Pump runtime
+
 By Ashley Gillman and Brendan Calvert
 */
 
@@ -13,7 +22,8 @@ By Ashley Gillman and Brendan Calvert
 #include <Adafruit_GFX.h> // https://github.com/adafruit/Adafruit-GFX-Library
 #include <Adafruit_PCD8544.h>
 // https://github.com/adafruit/Adafruit-PCD8544-Nokia-5110-LCD-library
-#include <ButtonEvent.h> // https://github.com/usefulthink/ebl-arduino
+#include <ButtonEvent.h>
+#include <Properties.h> // https://github.com/usefulthink/ebl-arduino
 
 #define DEBUG 1 // Serial out?
 
@@ -23,21 +33,15 @@ const long MIN2MILLI = 60*1000L;
 const long SEC2MILLI = 1000L;
 
 // pin constants
+const int RST = 3;
+const int CE = 4;
+const int DC = 5;
+const int DIN = 6;
+const int CLK = 7;
 const int PUMP_PINS[6] = {8, 9, 10, 11, 12, 13};
-
-// time constants
-const long DELAYS[6] = {
-  0,
-  1 * MIN2MILLI,
-  2 * MIN2MILLI,
-  3 * MIN2MILLI,
-  4 * MIN2MILLI,
-  5 * MIN2MILLI
-};
-const long pumpRunTime = 60 * SEC2MILLI;
+const int btnPin = 0; // note: A0
 
 // analog button values
-const int btnPin = 0;
 const int btnDev = 100;
 const int holdTime = 500;
 const int doubleTime = 0;
@@ -45,9 +49,14 @@ const int upBtn = 1023 / 3;
 const int downBtn = 1023 / 2;
 const int nextBtn = 1023;
 
-Timer timer;
-Adafruit_PCD8544 display = Adafruit_PCD8544(7, 6, 5, 4, 3);
+// time values
+long DELAYS[6];
+long pumpRunTime;
 
+Timer timer;
+Adafruit_PCD8544 display = Adafruit_PCD8544(CLK, DIN, DC, CE, RST);
+
+boolean error = false;
 int initPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
 int currentPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
 boolean pumpActive[6] = {0, 0, 0, 0, 0, 0};
@@ -58,6 +67,14 @@ void setup() {
   if (DEBUG) { Serial.begin(9600); }
   display.begin();
   display.setContrast(50);
+  
+  // load from EEPROM
+  if (Properties.load()) {
+    for (int i=0; i<6; i++) {
+      DELAYS[i] = Properties.getInt(i) * MIN2MILLI;
+    }
+    pumpRunTime = Properties.getInt(6) * MIN2MILLI;
+  } else { error = true; }
   
   // buttons
   ButtonEvent.initialCapacity = sizeof(ButtonInformation)*3;
