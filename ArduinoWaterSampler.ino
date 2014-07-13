@@ -16,7 +16,7 @@ Properties
 
 By Ashley Gillman and Brendan Calvert
 */
-
+#include <avr/wdt.h>
 #include <Timer.h> // https://github.com/JChristensen/Timer
 #include <SPI.h>
 #include <Adafruit_GFX.h> // https://github.com/adafruit/Adafruit-GFX-Library
@@ -44,19 +44,16 @@ const int btnPin = 0; // note: A0
 // analog button values
 const int btnDev = 100;
 const int holdTime = 500;
-const int doubleTime = 0;
+const int doubleTime = 200;
 const int upBtn = 1023 / 3;
 const int downBtn = 1023 / 2;
 const int nextBtn = 1023;
-
-// time values
-long DELAYS[6];
-long pumpRunTime;
 
 Timer timer;
 Adafruit_PCD8544 display = Adafruit_PCD8544(CLK, DIN, DC, CE, RST);
 
 boolean error = false;
+boolean reqRestart = false;
 int cursorPos = 0;
 boolean blinker = false;
 int initPumpNo = 0; // Note: zero indexed (0 ~ pump 1)
@@ -70,32 +67,31 @@ void setup() {
   display.setContrast(50);
   
   // load from EEPROM
-  if (Properties.load()) {
-    for (int i=0; i<6; i++) {
-      DELAYS[i] = Properties.getInt(i) * MIN2MILLI;
-    }
-    pumpRunTime = Properties.getInt(6) * MIN2MILLI;
-  } else { error = true; }
+  if (!Properties.load()) { error = true; }
   
   // buttons
   ButtonEvent.initialCapacity = sizeof(ButtonInformation)*3;
   ButtonEvent.addButton(btnPin, nextBtn, btnDev, incrementCursor, NULL, NULL,
-    holdTime, NULL, doubleTime);
+    holdTime, decrementCursor, doubleTime);
+  ButtonEvent.addButton(btnPin, upBtn, btnDev, changeVal, NULL,
+    bigChangeVal, holdTime, NULL, doubleTime);
+  ButtonEvent.addButton(btnPin, downBtn, btnDev, changeVal, NULL,
+    bigChangeVal, holdTime, NULL, doubleTime);
   
   // setup pumps
   for (int i=0; i<6; i++) {
     pinMode(PUMP_PINS[i],OUTPUT);
-    timer.after(DELAYS[i],startPump);
+    timer.after(Properties.getInt(i),startPump);
     if (DEBUG) {
       Serial.print("initialised pump ");
       Serial.print(i + 1);
       Serial.print(" for ");
-      Serial.println(DELAYS[i]);
+      Serial.println(Properties.getInt(i));
     }
   }
   
   //blinker
-  timer.every(600, blink);
+  timer.every(500, blink);
 }
 
 void loop() {
@@ -108,7 +104,7 @@ void loop() {
 void startPump() {
   digitalWrite(PUMP_PINS[initPumpNo],HIGH); // Pump On
   pumpActive[initPumpNo] = true;
-  timer.after(pumpRunTime,stopPump); // Set timer for off
+  timer.after(Properties.getInt(6),stopPump); // Set timer for runtime
   if (DEBUG) {
     Serial.print("started pump ");
     Serial.print(initPumpNo + 1);
@@ -130,6 +126,18 @@ void stopPump() {
   currentPumpNo++;
 }
 
+void modify(int pump, int mins) {
+  reqRestart = true;
+  Properties.set(pump, max(Properties.getInt(pump) + mins, 0)); // prevent neg
+  Properties.save();
+}
+
+void saveAndRestart() {
+  Properties.save();
+  wdt_enable(WDTO_15MS);
+  while(true) {}
+}
+
 void displayTimes() {
   display.clearDisplay();
   display.setTextSize(1);
@@ -145,13 +153,13 @@ void displayTimes() {
     if ((cursorPos == 2*i) & blinker) {
       display.setTextColor(WHITE, BLACK); // blink
     }
-    display.print(DELAYS[i]/HR2MILLI);
+    display.print(Properties.getInt(i) / 60);
     display.setTextColor(BLACK);
     display.print("h ");
     if ((cursorPos == 2*i+1) & blinker) {
       display.setTextColor(WHITE, BLACK); // blink
     }
-    display.print(DELAYS[i]/MIN2MILLI);
+    display.print(Properties.getInt(i) % 60);
     display.setTextColor(BLACK);
     display.println("min");
   }
@@ -167,13 +175,13 @@ void displayRuntime() {
     if ((cursorPos == 12) & blinker) {
       display.setTextColor(WHITE, BLACK); // blink
     }
-  display.print(pumpRunTime/HR2MILLI);
+  display.print(Properties.getInt(6) / 60);
   display.setTextColor(BLACK);
   display.print("h ");
     if ((cursorPos == 13) & blinker) {
       display.setTextColor(WHITE, BLACK); // blink
     }
-  display.print(pumpRunTime/MIN2MILLI);
+  display.print(Properties.getInt(6) % 60);
   display.setTextColor(BLACK);
   display.println("min");
   display.display();
@@ -181,7 +189,49 @@ void displayRuntime() {
 
 void incrementCursor(ButtonInformation* Sender) {
   cursorPos = (cursorPos + 1) % 14;
+  if ((cursorPos == 0) & reqRestart) { saveAndRestart(); }
 }
+
+void decrementCursor(ButtonInformation* Sender) {
+  cursorPos = max(cursorPos - 2, 0);
+}
+
+void changeVal(ButtonInformation* Sender) {
+  int inc;
+  if (cursorPos % 2 == 0) {
+    inc = 60; //mins
+  } else {
+    inc = 1; // min
+  }
+  if (Sender->analogValue == upBtn) {
+    modify(cursorPos/2, inc);
+    if (DEBUG) {
+      Serial.print("increment Pump ");
+      Serial.println(cursorPos/2+1);
+    }
+  } else if (Sender->analogValue == downBtn) {
+    modify(cursorPos/2, -inc);
+    if (DEBUG) {
+      Serial.print("decrement Pump ");
+      Serial.println(cursorPos/2+1);
+    }
+  }
+}
+
+void bigChangeVal(ButtonInformation* Sender) {
+  int inc;
+  if (cursorPos % 2 == 0) {
+    inc = 540; //mins
+  } else {
+    inc = 9; // min
+  }
+  if (Sender->analogValue == upBtn) {
+    modify(cursorPos/2, inc);
+  } else if (Sender->analogValue == downBtn) {
+    modify(cursorPos/2, -inc);
+  }
+}
+
 
 void blink() {
   blinker = !blinker;
