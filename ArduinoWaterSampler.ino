@@ -133,6 +133,9 @@ void modify(int pump, int mins) {
 }
 
 void saveAndRestart() {
+  displayBig("Saving");
+  displayBig("Config");
+  delay(800);
   Properties.save();
   wdt_enable(WDTO_15MS);
   while(true) {}
@@ -184,6 +187,15 @@ void displayRuntime() {
   display.print(Properties.getInt(6) % 60);
   display.setTextColor(BLACK);
   display.println("min");
+  display.display();
+}
+
+void displayBig(String str) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(0,0);
+  display.setTextColor(BLACK);
+  display.println(str);
   display.display();
 }
 
