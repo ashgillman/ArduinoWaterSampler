@@ -1,11 +1,14 @@
 /*
 Arduino Water Sampler
 
-A basic sequencer, waits for an input (from a float sensor indicating presence
-of water), then sequences a series of outputs (activating relays to start the
-sampler PUMP_PINS).
+A sequencer for a water sampler. The sampler waits for water flow to be
+detected via a float switch, then activates a sequence of pumps to take delayed
+samples.
+The timings are stored in EEPROM to enable them to be retained after reset.
+The timings are adjuctable via 3 buttons read on A0 (resistor ladder). This is
+also accompanied by a user interface displayed on a Nokia 5110 screen.
 
-Properties
+Properties (EEPROM Address Table)
 0: Pump 1 mins
 1: Pump 2 mins
 2: Pump 3 mins
@@ -13,6 +16,26 @@ Properties
 4: Pump 5 mins
 5: Pump 6 mins
 7: Pump runtime
+
+Pins
+0: Unused
+1: Debug tx
+2: Float Switch
+3: Screen RST
+4: Screen CE
+5: Screen DC
+6: Screen DIN
+7: Screen CLK
+8: Pump 1
+9: Pump 2
+10: Pump 3
+11: Pump 4
+12: Pump 5
+13: Pump 6
+A0: Buttons
+  Next: 100%
+  Down: 50%
+  Up:   33%
 
 By Ashley Gillman and Brendan Calvert
 */
@@ -81,7 +104,7 @@ void setup() {
   // setup pumps
   for (int i=0; i<6; i++) {
     pinMode(PUMP_PINS[i],OUTPUT);
-    timer.after(Properties.getInt(i),startPump);
+    timer.after(Properties.getInt(i)*MIN2MILLI,startPump);
     if (DEBUG) {
       Serial.print("initialised pump ");
       Serial.print(i + 1);
@@ -104,7 +127,7 @@ void loop() {
 void startPump() {
   digitalWrite(PUMP_PINS[initPumpNo],HIGH); // Pump On
   pumpActive[initPumpNo] = true;
-  timer.after(Properties.getInt(6),stopPump); // Set timer for runtime
+  timer.after(Properties.getInt(6)*MIN2MILLI,stopPump); // Set timer for runtime
   if (DEBUG) {
     Serial.print("started pump ");
     Serial.print(initPumpNo + 1);
@@ -133,8 +156,7 @@ void modify(int pump, int mins) {
 }
 
 void saveAndRestart() {
-  displayBig("Saving");
-  displayBig("Config");
+  displayBig("Saving\nConfig");
   delay(800);
   Properties.save();
   wdt_enable(WDTO_15MS);
