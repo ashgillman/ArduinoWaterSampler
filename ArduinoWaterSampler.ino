@@ -56,6 +56,7 @@ const long MIN2MILLI = 60*1000L;
 const long SEC2MILLI = 1000L;
 
 // pin constants
+const int swPin = 2;
 const int RST = 3;
 const int CE = 4;
 const int DC = 5;
@@ -76,6 +77,7 @@ Timer timer;
 Adafruit_PCD8544 display = Adafruit_PCD8544(CLK, DIN, DC, CE, RST);
 
 boolean error = false;
+boolean running = false;
 boolean reqRestart = false;
 int cursorPos = 0;
 boolean blinker = false;
@@ -93,27 +95,19 @@ void setup() {
   if (!Properties.load()) { error = true; }
   
   // buttons
-  ButtonEvent.initialCapacity = sizeof(ButtonInformation)*3;
+  ButtonEvent.initialCapacity = sizeof(ButtonInformation) * 4;
   ButtonEvent.addButton(btnPin, nextBtn, btnDev, incrementCursor, NULL, NULL,
     holdTime, decrementCursor, doubleTime);
   ButtonEvent.addButton(btnPin, upBtn, btnDev, changeVal, NULL,
     bigChangeVal, holdTime, NULL, doubleTime);
   ButtonEvent.addButton(btnPin, downBtn, btnDev, changeVal, NULL,
     bigChangeVal, holdTime, NULL, doubleTime);
+    
+  // float switch
+  ButtonEvent.addButton(swPin, underWater, overWater, NULL, 0, NULL, 0);
+  pinMode(swPin, INPUT_PULLUP);
   
-  // setup pumps
-  for (int i=0; i<6; i++) {
-    pinMode(PUMP_PINS[i],OUTPUT);
-    timer.after(Properties.getInt(i)*MIN2MILLI,startPump);
-    if (DEBUG) {
-      Serial.print("initialised pump ");
-      Serial.print(i + 1);
-      Serial.print(" for ");
-      Serial.println(Properties.getInt(i));
-    }
-  }
-  
-  //blinker
+  // blinker
   timer.every(500, blink);
 }
 
@@ -125,28 +119,75 @@ void loop() {
 }
 
 void startPump() {
-  digitalWrite(PUMP_PINS[initPumpNo],HIGH); // Pump On
-  pumpActive[initPumpNo] = true;
-  timer.after(Properties.getInt(6)*MIN2MILLI,stopPump); // Set timer for runtime
-  if (DEBUG) {
-    Serial.print("started pump ");
-    Serial.print(initPumpNo + 1);
-    Serial.print(" on pin ");
-    Serial.println(PUMP_PINS[initPumpNo]);
-  }
+  startPump(initPumpNo);
   initPumpNo++;
 }
 
+void startPump(int pumpNo) {
+  if (running) {
+    digitalWrite(PUMP_PINS[pumpNo], HIGH); // Pump On
+    pumpActive[pumpNo] = true;
+    timer.after(Properties.getInt(6)*MIN2MILLI, stopPump); // Set timer for runtime
+    if (DEBUG) {
+      Serial.print("started pump ");
+      Serial.print(pumpNo + 1);
+      Serial.print(" on pin ");
+      Serial.println(PUMP_PINS[pumpNo]);
+    }
+  }
+}
+
+void setupPumps() {
+  for (int i=0; i<6; i++) {
+    pinMode(PUMP_PINS[i], OUTPUT);
+    timer.after(Properties.getInt(i) * MIN2MILLI, startPump);
+    if (DEBUG) {
+      Serial.print("initialised pump ");
+      Serial.print(i + 1);
+      Serial.print(" for ");
+      Serial.println(Properties.getInt(i));
+    }
+  }
+  initPumpNo = 0;
+}
+
 void stopPump() {
-  digitalWrite(PUMP_PINS[currentPumpNo],LOW); // Pump Off
-  pumpActive[currentPumpNo] = false;
+  stopPump(currentPumpNo);
+  currentPumpNo++;
+}
+
+void stopPump(int pumpNo) {
+  digitalWrite(PUMP_PINS[pumpNo], LOW); // Pump Off
+  pumpActive[pumpNo] = false;
   if (DEBUG) {
     Serial.print("stopped pump ");
-    Serial.print(currentPumpNo + 1);
+    Serial.print(pumpNo + 1);
     Serial.print(" on pin ");
-    Serial.println(PUMP_PINS[currentPumpNo]);
+    Serial.println(PUMP_PINS[pumpNo]);
   }
-  currentPumpNo++;
+}
+
+void overWater(ButtonInformation* Sender) {
+  /* Do nothing for now*/
+  // halt all pumps
+  running = false;
+  for (int i=0; i<6; i++) {
+    stopPump(i);
+  }
+  currentPumpNo = 0;
+  
+  if (DEBUG) { Serial.println("No Water"); }
+  displayBig("Stopped");
+  delay(800);
+}
+
+void underWater(ButtonInformation* Sender) {
+  running = true;
+  setupPumps();
+  
+  if (DEBUG) { Serial.println("Water"); }
+  displayBig("Started");
+  delay(800);
 }
 
 void modify(int pump, int mins) {
@@ -265,7 +306,6 @@ void bigChangeVal(ButtonInformation* Sender) {
     modify(cursorPos/2, -inc);
   }
 }
-
 
 void blink() {
   blinker = !blinker;
