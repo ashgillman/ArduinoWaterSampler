@@ -127,7 +127,7 @@ void startPump(int pumpNo) {
   if (running) {
     digitalWrite(PUMP_PINS[pumpNo], HIGH); // Pump On
     pumpActive[pumpNo] = true;
-    timer.after(Properties.getInt(6)*MIN2MILLI, stopPump); // Set timer for runtime
+    timer.after(Properties.getInt(6)*MIN2MILLI, stopPump); // Set runtime
     if (DEBUG) {
       Serial.print("started pump ");
       Serial.print(pumpNo + 1);
@@ -199,9 +199,10 @@ void modify(int pump, int mins) {
 void saveAndRestart() {
   displayBig("Saving\nConfig");
   delay(800);
-  Properties.save();
-  wdt_enable(WDTO_15MS);
-  while(true) {}
+  setupPumps();
+  //Properties.save();
+  //wdt_enable(WDTO_15MS);
+  //while(true) {}
 }
 
 void displayTimes() {
@@ -296,7 +297,7 @@ void changeVal(ButtonInformation* Sender) {
 void bigChangeVal(ButtonInformation* Sender) {
   int inc;
   if (cursorPos % 2 == 0) {
-    inc = 540; //mins
+    inc = 540; // mins
   } else {
     inc = 9; // min
   }
