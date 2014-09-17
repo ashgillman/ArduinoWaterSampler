@@ -89,7 +89,7 @@ void setup() {
   // init
   if (DEBUG) { Serial.begin(9600); }
   display.begin();
-  display.setContrast(50);
+  display.setContrast(55);
   
   // load from EEPROM
   if (!Properties.load()) { error = true; }
@@ -134,6 +134,12 @@ void startPump(int pumpNo) {
       Serial.print(" on pin ");
       Serial.println(PUMP_PINS[pumpNo]);
     }
+    //stop all other pumps
+    for (int i=0; i<6; i++) {
+      if (i!=pumpNo) {
+        stopPump(i);
+      }
+    }
   }
 }
 
@@ -170,20 +176,22 @@ void stopPump(int pumpNo) {
 void overWater(ButtonInformation* Sender) {
   /* Do nothing for now*/
   // halt all pumps
-  running = false;
-  for (int i=0; i<6; i++) {
-    stopPump(i);
-  }
-  currentPumpNo = 0;
+  //running = false;
+  //for (int i=0; i<6; i++) {
+  //  stopPump(i);
+  //}
+  //currentPumpNo = 0;
   
   if (DEBUG) { Serial.println("No Water"); }
-  displayBig("Stopped");
+  displayBig("Water?");
   delay(800);
 }
 
 void underWater(ButtonInformation* Sender) {
-  running = true;
-  setupPumps();
+  if (!running) {
+    running = true;
+    setupPumps();
+  }
   
   if (DEBUG) { Serial.println("Water"); }
   displayBig("Started");
